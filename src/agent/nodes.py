@@ -85,7 +85,8 @@ class HealingNodes:
                         content=(
                             f"<|tool_response_start|>File content of solution.py:\n{current_code}<|tool_response_end|>\n\n"
                             f"{error_section}\n\n"
-                            "Now write the complete corrected solution.py to pass all tests."
+                            "Now write the COMPLETE, FULL corrected Python code for solution.py in a single ```python ... ``` block. "
+                            "Make sure all bugs and assertion failures identified above are fixed."
                         )
                     )
                 )
@@ -95,6 +96,31 @@ class HealingNodes:
                 patched_code = extract_python_code(raw_followup, current_code=current_code)
             except Exception as e:
                 logger.error("Follow-up turn failed: %s", e)
+
+        # Repetition Guard: if patched_code is identical to current_code and we have a failing traceback,
+        # request the model to make actual modifications rather than generating an identical file
+        if patched_code.strip() == current_code.strip() and state.get("error_trace"):
+            logger.warning("Extracted code patch is identical to previous failing code. Prompting for explicit change...")
+            try:
+                fix_messages = [
+                    SystemMessage(content=CODE_PATCH_SYSTEM_PROMPT),
+                    HumanMessage(
+                        content=(
+                            f"{error_section}\n\n"
+                            f"IMPORTANT: Your previous output did not change the code and tests are still failing.\n"
+                            f"CURRENT CODE:\n```python\n{current_code}\n```\n\n"
+                            "Provide the COMPLETE corrected solution.py in a ```python ... ``` block with the necessary bug fixes applied:"
+                        )
+                    ),
+                ]
+                fix_resp = self.llm.invoke(fix_messages)
+                raw_fix = getattr(fix_resp, "content", str(fix_resp))
+                candidate_fix = extract_python_code(raw_fix, current_code=current_code)
+                if candidate_fix.strip() and candidate_fix.strip() != current_code.strip():
+                    patched_code = candidate_fix
+                    recorded_llm_response = f"{recorded_llm_response}\n\nRepetition Fix: {raw_fix}"
+            except Exception as e:
+                logger.error("Repetition retry failed: %s", e)
 
         # Safety fallback to current_code if extraction was empty or invalid
         if not patched_code.strip():

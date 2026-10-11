@@ -35,6 +35,80 @@ st.set_page_config(
     layout="wide",
 )
 
+# Custom CSS for equal button heights and uniform 3-column input heights
+st.markdown(
+    """
+    <style>
+    /* Target Streamlit secondary buttons in columns */
+    div[data-testid="column"] button,
+    div[data-testid="stButton"] button {
+        height: 52px !important;
+        min-height: 52px !important;
+        max-height: 52px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
+    }
+    /* Make Streamlit column containers flex and fill equal height */
+    div[data-testid="column"] {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    div[data-testid="column"] > div {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+    }
+    /* Target Streamlit text area root, wrapper, and actual textarea */
+    div[data-testid="stTextArea"] {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    div[data-testid="stTextArea"] > div:nth-child(2),
+    div[data-testid="stTextArea"] [data-baseweb="textarea"],
+    div[data-testid="stTextArea"] textarea {
+        height: 480px !important;
+        min-height: 480px !important;
+        max-height: 480px !important;
+        box-sizing: border-box !important;
+    }
+    div[data-testid="stTextArea"] textarea {
+        font-family: Consolas, "Courier New", monospace !important;
+        font-size: 0.88rem !important;
+    }
+    /* Harmonize subheader heights across the 3 columns */
+    div[data-testid="column"] h3,
+    div[data-testid="column"] [data-testid="stMarkdownContainer"] h3 {
+        height: 52px !important;
+        min-height: 52px !important;
+        max-height: 52px !important;
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 0 8px 0 !important;
+        padding: 0 !important;
+    }
+    /* Harmonize label heights above text areas */
+    div[data-testid="stTextArea"] label,
+    div[data-testid="stWidgetLabel"] {
+        height: 28px !important;
+        min-height: 28px !important;
+        max-height: 28px !important;
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("🛡️ Autonomous Code-Healing Agent")
 st.caption("Docker Sandbox + Local LiquidAI LFM 2.5 (2.6B) + LangGraph Loop")
 
@@ -63,8 +137,8 @@ if is_llm_live:
 else:
     st.sidebar.warning(f"Local LLM offline at:\n{llm_endpoint}")
 
-# Default sample code
-DEFAULT_BUGGY_CODE = '''class Calculator:
+# Sample Bug 1: Basic Calculator
+BASIC_BUGGY_CODE = '''class Calculator:
     def add(self, a: float, b: float) -> float:
         return a + b
 
@@ -79,7 +153,7 @@ DEFAULT_BUGGY_CODE = '''class Calculator:
         return sum(numbers) / (len(numbers) - 1)
 '''
 
-DEFAULT_TEST_CODE = '''import pytest
+BASIC_TEST_CODE = '''import pytest
 
 try:
     from solution import Calculator
@@ -98,37 +172,139 @@ def test_average():
     assert calc.average([]) == 0.0
 '''
 
-col_btn1, col_btn2 = st.columns([1, 5])
-with col_btn1:
-    if st.button("Load Calculator Bug Sample"):
-        st.session_state["source_code_input"] = DEFAULT_BUGGY_CODE
-        st.session_state["test_code_input"] = DEFAULT_TEST_CODE
+BASIC_TASK_DESC = "Fix Calculator bugs: 1. Raise ValueError with 'Cannot divide by zero' on division by zero. 2. Fix off-by-one division in average calculation."
 
-# Code input columns
-col1, col2 = st.columns(2)
+# Sample Bug 2: Advanced LRU Cache with TTL (Fully in English)
+ADVANCED_BUGGY_CODE = '''import time
+
+class LRUCacheWithTTL:
+    def __init__(self, capacity: int, default_ttl: float = 60.0):
+        self.capacity = capacity
+        self.default_ttl = default_ttl
+        self.cache = {}          # key -> value
+        self.expiry = {}         # key -> timestamp
+        self.access_order = []   # list of keys (oldest to newest)
+
+    def _is_expired(self, key: str) -> bool:
+        if key in self.expiry:
+            return time.time() > self.expiry[key]
+        return False
+
+    def get(self, key: str):
+        # BUG 1: Does not delete expired keys from cache, expiry, or access_order
+        if key not in self.cache or self._is_expired(key):
+            return None
+
+        # BUG 2: Misses updating the key position in access_order on cache hit
+        return self.cache[key]
+
+    def put(self, key: str, value, ttl: float = None) -> None:
+        current_ttl = ttl if ttl is not None else self.default_ttl
+        expiry_time = time.time() + current_ttl
+
+        # BUG 3: If key already exists, does not remove old position in access_order leading to duplicates
+        if key not in self.cache:
+            if len(self.cache) >= self.capacity:
+                # BUG 4: Evicts newest item (-1) instead of oldest item (0)
+                lru_key = self.access_order.pop(-1)
+                del self.cache[lru_key]
+                if lru_key in self.expiry:
+                    del self.expiry[lru_key]
+
+        self.cache[key] = value
+        self.expiry[key] = expiry_time
+        self.access_order.append(key)
+'''
+
+ADVANCED_TEST_CODE = '''import time
+import pytest
+from solution import LRUCacheWithTTL
+
+def test_lru_eviction_order():
+    cache = LRUCacheWithTTL(capacity=2)
+    cache.put("a", 1)
+    cache.put("b", 2)
+    
+    # Access "a" -> "b" becomes the least recently used item (LRU)
+    assert cache.get("a") == 1
+    
+    # Insert "c" -> evicts "b", retains "a"
+    cache.put("c", 3)
+    assert cache.get("a") == 1
+    assert cache.get("b") is None
+    assert cache.get("c") == 3
+
+def test_key_update_does_not_duplicate_order():
+    cache = LRUCacheWithTTL(capacity=2)
+    cache.put("a", 1)
+    cache.put("a", 10)  # Update value for existing key
+    cache.put("b", 2)   # Order state: ["a", "b"]
+    cache.put("c", 3)   # Must evict "a" without exceeding capacity
+
+    assert cache.get("a") is None
+    assert cache.get("b") == 2
+    assert cache.get("c") == 3
+    assert len(cache.cache) <= 2
+
+def test_ttl_expiration_cleanup():
+    cache = LRUCacheWithTTL(capacity=3, default_ttl=0.1)
+    cache.put("temp", 99, ttl=0.05)
+    
+    time.sleep(0.08)
+    # Key has expired -> must return None and clean up completely
+    assert cache.get("temp") is None
+    assert "temp" not in cache.cache
+    assert "temp" not in cache.expiry
+    assert "temp" not in cache.access_order
+'''
+
+ADVANCED_TASK_DESC = "Fix the LRUCacheWithTTL implementation: 1. Ensure `get()` updates the key to most-recently-used upon cache hit. 2. Ensure expired keys are cleaned up completely from cache, expiry, and access order upon access. 3. Fix LRU eviction to remove the least recently used item (oldest item in order) when capacity is reached. 4. Ensure updating an existing key updates its position without duplicating keys in the access order list."
+
+# Button row for loading samples
+col_btn1, col_btn2, col_btn_empty = st.columns([2, 2, 4])
+with col_btn1:
+    if st.button("📦 Load Basic Bug (Calculator)", use_container_width=True):
+        st.session_state["source_code_area"] = BASIC_BUGGY_CODE
+        st.session_state["test_code_area"] = BASIC_TEST_CODE
+        st.session_state["task_desc_area"] = BASIC_TASK_DESC
+        st.rerun()
+
+with col_btn2:
+    if st.button("🔥 Load Advanced Bug (LRU Cache)", use_container_width=True):
+        st.session_state["source_code_area"] = ADVANCED_BUGGY_CODE
+        st.session_state["test_code_area"] = ADVANCED_TEST_CODE
+        st.session_state["task_desc_area"] = ADVANCED_TASK_DESC
+        st.rerun()
+
+# 3-Column Input Layout
+col1, col2, col3 = st.columns(3)
 
 with col1:
     st.subheader("1. Buggy Python Code")
     source_code = st.text_area(
-        "Source Code",
-        value=st.session_state.get("source_code_input", DEFAULT_BUGGY_CODE),
-        height=320,
+        "Source Code (solution.py)",
+        value=st.session_state.get("source_code_area", BASIC_BUGGY_CODE),
+        height=480,
         key="source_code_area",
     )
 
 with col2:
     st.subheader("2. Pytest Test Cases")
     test_code = st.text_area(
-        "Pytest Suite",
-        value=st.session_state.get("test_code_input", DEFAULT_TEST_CODE),
-        height=320,
+        "Pytest Suite (test_suite.py)",
+        value=st.session_state.get("test_code_area", BASIC_TEST_CODE),
+        height=480,
         key="test_code_area",
     )
 
-task_desc = st.text_input(
-    "Task Description / Requirements",
-    value="Fix bugs to pass all unit tests.",
-)
+with col3:
+    st.subheader("3. Requirements")
+    task_desc = st.text_area(
+        "Requirements & Guidelines",
+        value=st.session_state.get("task_desc_area", BASIC_TASK_DESC),
+        height=480,
+        key="task_desc_area",
+    )
 
 run_button = st.button("🚀 Run Healing Agent", type="primary", use_container_width=True)
 
