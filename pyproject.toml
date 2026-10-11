@@ -5,12 +5,29 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "auto-heal-sandbox-agent"
 version = "0.1.0"
-description = "Autonomous Code-Healing Agent with Docker Sandbox & Local LFM 2.5 (2.6B)"
+description = "Autonomous Code-Healing Agent with isolated Docker Sandbox, LangGraph cyclic state-machine, and local LiquidAI LFM 2.5 (2.6B) inference."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "AIE Team" }
+]
+keywords = [
+    "ai-agent",
+    "autonomous-agent",
+    "code-healing",
+    "self-healing-code",
+    "langgraph",
+    "docker-sandbox",
+    "liquidai",
+    "lfm",
+    "local-llm",
+    "llama-cpp",
+    "model-context-protocol",
+    "mcp",
+    "pytest",
+    "streamlit",
+    "safe-eval"
 ]
 dependencies = [
     "langgraph>=0.2.0",

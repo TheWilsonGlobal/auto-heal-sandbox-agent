@@ -1,8 +1,21 @@
 # Auto-Heal Sandbox Agent 🛡️
 
-Production-grade, local-first **Autonomous Code-Healing Agent** powered by LangGraph, an isolated Docker Sandbox, and local LiquidAI LFM 2.5 (2.6B Q8) inference via llama.cpp.
+> **Autonomous Code-Healing Agent with isolated Docker Sandbox, LangGraph cyclic state-machine, and local LiquidAI LFM 2.5 (2.6B) inference.**
+
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![LangGraph](https://img.shields.io/badge/orchestration-LangGraph-orange.svg)](https://github.com/langchain-ai/langgraph)
+[![Docker](https://img.shields.io/badge/sandbox-Docker_Isolated-2496ED.svg)](https://www.docker.com/)
+[![Local LLM](https://img.shields.io/badge/model-LiquidAI_LFM_2.5_2.6B-green.svg)](https://www.liquid.ai/)
+[![MCP](https://img.shields.io/badge/protocol-FastMCP-purple.svg)](https://modelcontextprotocol.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
+
+### 🏷️ GitHub Repository Topics
+`ai-agent` • `autonomous-agent` • `code-healing` • `self-healing-code` • `langgraph` • `docker-sandbox` • `liquidai` • `lfm` • `local-llm` • `llama-cpp` • `model-context-protocol` • `mcp` • `pytest` • `streamlit` • `safe-eval` • `python`
+
+---
+
 
 ## 1. Architecture Overview
 
