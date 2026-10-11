@@ -263,11 +263,11 @@ def extract_python_code(text: str, current_code: str = "") -> str:
     return ""
 
 
-def truncate_traceback(stderr: str, max_lines: int = 10) -> str:
-    """Filter and extract the most relevant lines of traceback or error logs.
+def truncate_traceback(stderr: str, max_lines: int = 15) -> str:
+    """Filter and extract the most relevant lines of pytest failure or traceback.
 
-    Extracts the last `max_lines` from error logs/test output containing
-    the core Exception, preventing context window saturation on 2.6B models.
+    Strips boilerplate test session headers and focuses directly on the
+    FAILURES section and final summary, preventing context window bloat for small models.
     """
     if not stderr or not stderr.strip():
         return ""
@@ -276,8 +276,20 @@ def truncate_traceback(stderr: str, max_lines: int = 10) -> str:
     if not lines:
         return ""
 
-    if len(lines) <= max_lines:
-        return "\n".join(lines)
+    # Strategy 1: Find FAILURES delimiter in pytest output
+    failure_idx = -1
+    for i, line in enumerate(lines):
+        if "FAILURES" in line and "=" in line:
+            failure_idx = i
+            break
 
-    selected_lines = lines[-max_lines:]
-    return "\n".join(selected_lines)
+    if failure_idx != -1:
+        relevant_lines = lines[failure_idx:]
+    else:
+        relevant_lines = lines
+
+    # Keep at most max_lines from the relevant failure section
+    if len(relevant_lines) > max_lines:
+        relevant_lines = relevant_lines[-max_lines:]
+
+    return "\n".join(relevant_lines)
