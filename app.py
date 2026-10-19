@@ -215,11 +215,10 @@ if run_button:
     }
 
     st.write("---")
-    st.subheader("2. Execution Checkpoint Tracker")
-
     log_history = []
-    with st.status("Executing Autonomous Healing Agent...", expanded=True) as status_box:
+    with st.status("🔄 Executing Autonomous Healing Agent...", expanded=True) as status_box:
         log_container = st.empty()
+
 
         def add_log(msg: str):
             ts = datetime.now().strftime("%H:%M:%S")
@@ -270,31 +269,31 @@ if run_button:
         "iteration_history": list(state.get("iteration_history") or []),
     }
     st.session_state["latest_run"] = run_record
+    st.session_state["result_expanded"] = True
 
-# Display 4. Result if a run has occurred
+# Display Results if a run has occurred
 if "latest_run" in st.session_state:
     run_record = st.session_state["latest_run"]
 
-    st.write("---")
-    st.subheader("3. Healed Result & Patched Code")
-
-    if run_record.get("is_solved"):
-        st.success("✨ Bug healed successfully! Code passed all unit tests in the Docker sandbox.")
-        st.code(run_record.get("fixed_code", ""), language="python")
-    else:
-        st.error("Failed to heal code within the allocated retry budget.")
-        if run_record.get("final_traceback"):
-            st.subheader("Final Traceback:")
-            st.code(run_record.get("final_traceback", ""), language="text")
-        if run_record.get("fixed_code"):
-            st.subheader("Last Generated Patch:")
+    # 2. Healed Result & Patched Code (Collapsible)
+    with st.expander("📁 2. Healed Result & Patched Code", expanded=st.session_state.get("result_expanded", True)):
+        if run_record.get("is_solved"):
+            st.success("✨ Bug healed successfully! Code passed all unit tests in the Docker sandbox.")
             st.code(run_record.get("fixed_code", ""), language="python")
+        else:
+            st.error("Failed to heal code within the allocated retry budget.")
+            if run_record.get("final_traceback"):
+                st.subheader("Final Traceback:")
+                st.code(run_record.get("final_traceback", ""), language="text")
+            if run_record.get("fixed_code"):
+                st.subheader("Last Generated Patch:")
+                st.code(run_record.get("fixed_code", ""), language="python")
 
-    # Interactive Iteration Inspector
+    # 3. Detailed Iteration Inspector (Collapsible)
     iterations = run_record.get("iteration_history", [])
     if iterations:
         with st.expander(
-            f"🔍 Detailed Iteration Inspector ({len(iterations)} attempts recorded)",
+            f"🔍 3. Detailed Iteration Inspector ({len(iterations)} attempts recorded)",
             expanded=st.session_state.get("inspector_expanded", False),
         ):
             for item in iterations:
@@ -313,6 +312,7 @@ if "latest_run" in st.session_state:
                 st.caption("Extracted Code Patch:")
                 st.code(item.get("fixed_code") or "N/A", language="python")
                 st.write("---")
+
 
     # Format download payloads
     json_payload = json.dumps(run_record, indent=2, ensure_ascii=False)
