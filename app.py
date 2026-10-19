@@ -377,22 +377,23 @@ if "latest_run" in st.session_state:
 
     ts_slug = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    st.write("---")
-    st.subheader("4. Export Logs & Artifacts")
-    col_dl1, col_dl2 = st.columns(2)
-    with col_dl1:
-        st.download_button(
-            label="💾 Download Session Report (.json)",
-            data=json_payload,
-            file_name=f"healing_report_{ts_slug}.json",
-            mime="application/json",
-            use_container_width=True,
-        )
-    with col_dl2:
-        st.download_button(
-            label="📄 Download Execution Log (.log)",
-            data=txt_log_payload,
-            file_name=f"healing_log_{ts_slug}.log",
-            mime="text/plain",
-            use_container_width=True,
-        )
+    # 4. Export Logs & Artifacts (Collapsible)
+    with st.expander("📥 4. Export Logs & Artifacts", expanded=st.session_state.get("export_expanded", True)):
+        col_dl1, col_dl2 = st.columns(2)
+        with col_dl1:
+            st.download_button(
+                label="💾 Download Session Report (.json)",
+                data=json_payload,
+                file_name=f"healing_report_{ts_slug}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+        with col_dl2:
+            st.download_button(
+                label="📄 Download Execution Log (.log)",
+                data=txt_log_payload,
+                file_name=f"healing_log_{ts_slug}.log",
+                mime="text/plain",
+                use_container_width=True,
+            )
+
