@@ -264,7 +264,13 @@ def test_healing_loop_max_retries_exhausted():
 # --- 4. MCP Server Registration Tests ---
 
 def test_mcp_tools_registered():
-    tool_names = [tool.name for tool in mcp._tool_manager.list_tools()]
+    if hasattr(mcp, "_tool_manager"):
+        tool_names = [tool.name for tool in mcp._tool_manager.list_tools()]
+    else:
+        import asyncio
+        tools = asyncio.run(mcp.list_tools())
+        tool_names = [tool.name for tool in tools]
+
     assert "execute_test_suite" in tool_names
     assert "execute_command" in tool_names
     assert "heal_code" in tool_names

@@ -23,6 +23,9 @@ logging.basicConfig(
 logger = logging.getLogger("auto-heal-demo")
 
 
+from constants import MOCK_CALCULATOR_FIXED_CODE
+
+
 class MockLFM25LLM:
     """Mock LLM simulating LiquidAI LFM 2.5 2.6B responses for offline demo testing."""
 
@@ -33,45 +36,10 @@ class MockLFM25LLM:
         self.call_count += 1
         logger.info("[Mock LLM] Generating simulated patch for iteration %d...", self.call_count)
 
-        # Corrected implementation of Calculator
-        fixed_code = '''```python
-from typing import List, Union
-
-class Calculator:
-    """A mathematical operations calculator with all bugs healed."""
-
-    def add(self, a: float, b: float) -> float:
-        return a + b
-
-    def subtract(self, a: float, b: float) -> float:
-        return a - b
-
-    def multiply(self, a: float, b: float) -> float:
-        return a * b
-
-    def divide(self, a: float, b: float) -> float:
-        if b == 0:
-            raise ValueError("Cannot divide by zero")
-        return a / b
-
-    def power(self, base: float, exponent: float) -> float:
-        return base ** exponent
-
-    def average(self, numbers: List[Union[int, float]]) -> float:
-        if not numbers:
-            return 0.0
-        return sum(numbers) / len(numbers)
-
-    def factorial(self, n: int) -> int:
-        if n < 0:
-            raise ValueError("Factorial is not defined for negative numbers")
-        if n == 0 or n == 1:
-            return 1
-        return n * self.factorial(n - 1)
-```'''
         class FakeResponse:
-            content = fixed_code
+            content = MOCK_CALCULATOR_FIXED_CODE
         return FakeResponse()
+
 
 
 def check_local_llm_running(endpoint: str = settings.LLM_BASE_URL) -> bool:
@@ -122,6 +90,14 @@ def main():
     if args.mock:
         logger.info("Using Mock LLM as explicitly requested via --mock.")
         custom_llm = MockLFM25LLM()
+    elif settings.LLM_PROVIDER.lower() == "gemini" and (settings.GEMINI_LLM_API_KEY or settings.LLM_API_KEY):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        logger.info("Using Gemini model: %s", settings.LLM_MODEL)
+        custom_llm = ChatGoogleGenerativeAI(
+            model=settings.LLM_MODEL,
+            google_api_key=settings.GEMINI_LLM_API_KEY or settings.LLM_API_KEY,
+            temperature=settings.LLM_TEMPERATURE,
+        )
     else:
         is_live = check_local_llm_running()
         if is_live:

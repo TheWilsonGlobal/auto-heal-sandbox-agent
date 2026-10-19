@@ -28,6 +28,15 @@ from src.config import settings
 from src.agent.graph import build_healing_graph
 from src.agent.state import AgentState
 from run_demo import MockLFM25LLM
+from constants import (
+    BASIC_BUGGY_CODE,
+    BASIC_TEST_CODE,
+    BASIC_TASK_DESC,
+    ADVANCED_BUGGY_CODE,
+    ADVANCED_TEST_CODE,
+    ADVANCED_TASK_DESC,
+    CUSTOM_CSS,
+)
 
 st.set_page_config(
     page_title="Auto-Heal Sandbox Agent",
@@ -35,82 +44,11 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS for equal button heights and uniform 3-column input heights
-st.markdown(
-    """
-    <style>
-    /* Target Streamlit secondary buttons in columns */
-    div[data-testid="column"] button,
-    div[data-testid="stButton"] button {
-        height: 52px !important;
-        min-height: 52px !important;
-        max-height: 52px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        font-size: 0.95rem !important;
-        font-weight: 500 !important;
-    }
-    /* Make Streamlit column containers flex and fill equal height */
-    div[data-testid="column"] {
-        display: flex !important;
-        flex-direction: column !important;
-    }
-    div[data-testid="column"] > div {
-        display: flex !important;
-        flex-direction: column !important;
-        flex: 1 1 auto !important;
-    }
-    /* Target Streamlit text area root, wrapper, and actual textarea */
-    div[data-testid="stTextArea"] {
-        flex: 1 1 auto !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-    div[data-testid="stTextArea"] > div:nth-child(2),
-    div[data-testid="stTextArea"] [data-baseweb="textarea"],
-    div[data-testid="stTextArea"] textarea {
-        height: 480px !important;
-        min-height: 480px !important;
-        max-height: 480px !important;
-        box-sizing: border-box !important;
-    }
-    div[data-testid="stTextArea"] textarea {
-        font-family: Consolas, "Courier New", monospace !important;
-        font-size: 0.88rem !important;
-    }
-    /* Harmonize subheader heights across the 3 columns */
-    div[data-testid="column"] h3,
-    div[data-testid="column"] [data-testid="stMarkdownContainer"] h3 {
-        height: 52px !important;
-        min-height: 52px !important;
-        max-height: 52px !important;
-        display: flex !important;
-        align-items: center !important;
-        margin: 0 0 8px 0 !important;
-        padding: 0 !important;
-    }
-    /* Harmonize label heights above text areas */
-    div[data-testid="stTextArea"] label,
-    div[data-testid="stWidgetLabel"] {
-        height: 28px !important;
-        min-height: 28px !important;
-        max-height: 28px !important;
-        display: flex !important;
-        align-items: center !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# Apply custom CSS styling for uniform columns and button heights
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 st.title("🛡️ Autonomous Code-Healing Agent")
-st.caption("Docker Sandbox + Local LiquidAI LFM 2.5 (2.6B) + LangGraph Loop")
+st.caption("Docker Sandbox + Local LiquidAI LFM 2.5 (2.6B) / Gemini + LangGraph Loop")
 
 
 def check_endpoint_live(endpoint: str) -> bool:
@@ -125,148 +63,41 @@ def check_endpoint_live(endpoint: str) -> bool:
 
 # Sidebar Configuration
 st.sidebar.header("⚙️ Configuration")
-llm_endpoint = st.sidebar.text_input("LLM Base URL", value=settings.LLM_BASE_URL)
-llm_model = st.sidebar.text_input("Model Name", value=settings.LLM_MODEL_NAME)
-max_retries = st.sidebar.slider("Max Retries", min_value=1, max_value=8, value=settings.MAX_RETRIES)
-use_mock_if_offline = st.sidebar.checkbox("Auto-fallback to Mock LLM if offline", value=True)
+provider_options = ["gemini", "openai"]
+default_provider_idx = 0 if getattr(settings, "LLM_PROVIDER", "gemini").lower() == "gemini" else 1
+llm_provider = st.sidebar.selectbox("LLM Provider", options=provider_options, index=default_provider_idx)
 
-# Status check for local LLM
-is_llm_live = check_endpoint_live(llm_endpoint)
-if is_llm_live:
-    st.sidebar.success(f"Connected to local LLM:\n{llm_endpoint}")
+if llm_provider == "gemini":
+    gemini_model = st.sidebar.text_input("Gemini Model", value=getattr(settings, "LLM_MODEL", "gemini-3.5-flash-lite"))
+    gemini_key = st.sidebar.text_input("Gemini API Key", value=getattr(settings, "GEMINI_LLM_API_KEY", ""), type="password")
+    max_retries = st.sidebar.slider("Max Retries", min_value=1, max_value=8, value=settings.MAX_RETRIES)
+    use_mock_if_offline = st.sidebar.checkbox("Auto-fallback to Mock LLM if offline", value=False)
+
+    if gemini_key:
+        st.sidebar.success(f"Configured Gemini Provider:\n{gemini_model}")
+    else:
+        st.sidebar.warning("Please provide Gemini API Key")
 else:
-    st.sidebar.warning(f"Local LLM offline at:\n{llm_endpoint}")
+    llm_endpoint = st.sidebar.text_input("LLM Base URL", value=settings.LLM_BASE_URL)
+    llm_model = st.sidebar.text_input("Model Name", value=settings.LLM_MODEL_NAME)
+    max_retries = st.sidebar.slider("Max Retries", min_value=1, max_value=8, value=settings.MAX_RETRIES)
+    use_mock_if_offline = st.sidebar.checkbox("Auto-fallback to Mock LLM if offline", value=True)
 
-# Sample Bug 1: Basic Calculator
-BASIC_BUGGY_CODE = '''class Calculator:
-    def add(self, a: float, b: float) -> float:
-        return a + b
+    # Status check for local LLM
+    is_llm_live = check_endpoint_live(llm_endpoint)
+    if is_llm_live:
+        st.sidebar.success(f"Connected to local LLM:\n{llm_endpoint}")
+    else:
+        st.sidebar.warning(f"Local LLM offline at:\n{llm_endpoint}")
 
-    def divide(self, a: float, b: float) -> float:
-        # BUG: Doesn't raise ValueError on division by zero
-        return a / b
-
-    def average(self, numbers: list) -> float:
-        # BUG: Off-by-one division in denominator
-        if not numbers:
-            return 0.0
-        return sum(numbers) / (len(numbers) - 1)
-'''
-
-BASIC_TEST_CODE = '''import pytest
-
-try:
-    from solution import Calculator
-except ImportError:
-    from buggy_calculator import Calculator
-
-def test_divide():
-    calc = Calculator()
-    assert calc.divide(10, 2) == 5.0
-    with pytest.raises(ValueError, match="Cannot divide by zero"):
-        calc.divide(10, 0)
-
-def test_average():
-    calc = Calculator()
-    assert calc.average([10, 20, 30]) == 20.0
-    assert calc.average([]) == 0.0
-'''
-
-BASIC_TASK_DESC = "Fix Calculator bugs: 1. Raise ValueError with 'Cannot divide by zero' on division by zero. 2. Fix off-by-one division in average calculation."
-
-# Sample Bug 2: Advanced LRU Cache with TTL (Fully in English)
-ADVANCED_BUGGY_CODE = '''import time
-
-class LRUCacheWithTTL:
-    def __init__(self, capacity: int, default_ttl: float = 60.0):
-        self.capacity = capacity
-        self.default_ttl = default_ttl
-        self.cache = {}          # key -> value
-        self.expiry = {}         # key -> timestamp
-        self.access_order = []   # list of keys (oldest to newest)
-
-    def _is_expired(self, key: str) -> bool:
-        if key in self.expiry:
-            return time.time() > self.expiry[key]
-        return False
-
-    def get(self, key: str):
-        # BUG 1: Does not delete expired keys from cache, expiry, or access_order
-        if key not in self.cache or self._is_expired(key):
-            return None
-
-        # BUG 2: Misses updating the key position in access_order on cache hit
-        return self.cache[key]
-
-    def put(self, key: str, value, ttl: float = None) -> None:
-        current_ttl = ttl if ttl is not None else self.default_ttl
-        expiry_time = time.time() + current_ttl
-
-        # BUG 3: If key already exists, does not remove old position in access_order leading to duplicates
-        if key not in self.cache:
-            if len(self.cache) >= self.capacity:
-                # BUG 4: Evicts newest item (-1) instead of oldest item (0)
-                lru_key = self.access_order.pop(-1)
-                del self.cache[lru_key]
-                if lru_key in self.expiry:
-                    del self.expiry[lru_key]
-
-        self.cache[key] = value
-        self.expiry[key] = expiry_time
-        self.access_order.append(key)
-'''
-
-ADVANCED_TEST_CODE = '''import time
-import pytest
-from solution import LRUCacheWithTTL
-
-def test_lru_eviction_order():
-    cache = LRUCacheWithTTL(capacity=2)
-    cache.put("a", 1)
-    cache.put("b", 2)
-    
-    # Access "a" -> "b" becomes the least recently used item (LRU)
-    assert cache.get("a") == 1
-    
-    # Insert "c" -> evicts "b", retains "a"
-    cache.put("c", 3)
-    assert cache.get("a") == 1
-    assert cache.get("b") is None
-    assert cache.get("c") == 3
-
-def test_key_update_does_not_duplicate_order():
-    cache = LRUCacheWithTTL(capacity=2)
-    cache.put("a", 1)
-    cache.put("a", 10)  # Update value for existing key
-    cache.put("b", 2)   # Order state: ["a", "b"]
-    cache.put("c", 3)   # Must evict "a" without exceeding capacity
-
-    assert cache.get("a") is None
-    assert cache.get("b") == 2
-    assert cache.get("c") == 3
-    assert len(cache.cache) <= 2
-
-def test_ttl_expiration_cleanup():
-    cache = LRUCacheWithTTL(capacity=3, default_ttl=0.1)
-    cache.put("temp", 99, ttl=0.05)
-    
-    time.sleep(0.08)
-    # Key has expired -> must return None and clean up completely
-    assert cache.get("temp") is None
-    assert "temp" not in cache.cache
-    assert "temp" not in cache.expiry
-    assert "temp" not in cache.access_order
-'''
-
-ADVANCED_TASK_DESC = "Fix the LRUCacheWithTTL implementation: 1. Ensure `get()` updates the key to most-recently-used upon cache hit. 2. Ensure expired keys are cleaned up completely from cache, expiry, and access order upon access. 3. Fix LRU eviction to remove the least recently used item (oldest item in order) when capacity is reached. 4. Ensure updating an existing key updates its position without duplicating keys in the access order list."
-
-# Button row for loading samples
-col_btn1, col_btn2, col_btn_empty = st.columns([2, 2, 4])
+# Button row: Presets, Run Agent, Expand/Collapse
+col_btn1, col_btn2, col_btn_run, col_btn3, col_btn4 = st.columns([2.2, 2.2, 2.2, 1.3, 1.3])
 with col_btn1:
     if st.button("📦 Load Basic Bug (Calculator)", use_container_width=True):
         st.session_state["source_code_area"] = BASIC_BUGGY_CODE
         st.session_state["test_code_area"] = BASIC_TEST_CODE
         st.session_state["task_desc_area"] = BASIC_TASK_DESC
+        st.session_state["inputs_expanded"] = True
         st.rerun()
 
 with col_btn2:
@@ -274,39 +105,64 @@ with col_btn2:
         st.session_state["source_code_area"] = ADVANCED_BUGGY_CODE
         st.session_state["test_code_area"] = ADVANCED_TEST_CODE
         st.session_state["task_desc_area"] = ADVANCED_TASK_DESC
+        st.session_state["inputs_expanded"] = True
         st.rerun()
 
-# 3-Column Input Layout
-col1, col2, col3 = st.columns(3)
+with col_btn_run:
+    run_button = st.button("🚀 Run Healing Agent", type="primary", use_container_width=True)
 
-with col1:
-    st.subheader("1. Buggy Python Code")
-    source_code = st.text_area(
-        "Source Code (solution.py)",
-        value=st.session_state.get("source_code_area", BASIC_BUGGY_CODE),
-        height=480,
-        key="source_code_area",
-    )
+with col_btn3:
+    if st.button("🔽 Expand All", use_container_width=True):
+        st.session_state["inputs_expanded"] = True
+        st.session_state["result_expanded"] = True
+        st.session_state["inspector_expanded"] = True
+        st.session_state["export_expanded"] = True
+        st.rerun()
 
-with col2:
-    st.subheader("2. Pytest Test Cases")
-    test_code = st.text_area(
-        "Pytest Suite (test_suite.py)",
-        value=st.session_state.get("test_code_area", BASIC_TEST_CODE),
-        height=480,
-        key="test_code_area",
-    )
+with col_btn4:
+    if st.button("🔼 Collapse All", use_container_width=True):
+        st.session_state["inputs_expanded"] = False
+        st.session_state["result_expanded"] = False
+        st.session_state["inspector_expanded"] = False
+        st.session_state["export_expanded"] = False
+        st.rerun()
 
-with col3:
-    st.subheader("3. Requirements")
-    task_desc = st.text_area(
-        "Requirements & Guidelines",
-        value=st.session_state.get("task_desc_area", BASIC_TASK_DESC),
-        height=480,
-        key="task_desc_area",
-    )
+# 1. Buggy Code, Tests & Requirements (Unified Collapsible Section)
+with st.expander("📁 1. Buggy Code, Tests & Requirements", expanded=st.session_state.get("inputs_expanded", True)):
+    col1, col2, col3 = st.columns(3)
 
-run_button = st.button("🚀 Run Healing Agent", type="primary", use_container_width=True)
+    with col1:
+        st.subheader("Buggy Python Code")
+        st.text_area(
+            "Source Code (solution.py)",
+            value=st.session_state.get("source_code_area", BASIC_BUGGY_CODE),
+            height=480,
+            key="source_code_area",
+        )
+
+    with col2:
+        st.subheader("Pytest Test Cases")
+        st.text_area(
+            "Pytest Suite (test_suite.py)",
+            value=st.session_state.get("test_code_area", BASIC_TEST_CODE),
+            height=480,
+            key="test_code_area",
+        )
+
+    with col3:
+        st.subheader("Requirements")
+        st.text_area(
+            "Requirements & Guidelines",
+            value=st.session_state.get("task_desc_area", BASIC_TASK_DESC),
+            height=480,
+            key="task_desc_area",
+        )
+
+# Always pull current input values from session state
+source_code = st.session_state.get("source_code_area", BASIC_BUGGY_CODE)
+test_code = st.session_state.get("test_code_area", BASIC_TEST_CODE)
+task_desc = st.session_state.get("task_desc_area", BASIC_TASK_DESC)
+
 
 if run_button:
     if not source_code.strip() or not test_code.strip():
@@ -314,20 +170,35 @@ if run_button:
         st.stop()
 
     custom_llm = None
-    if is_llm_live:
-        custom_llm = ChatOpenAI(
-            base_url=llm_endpoint,
-            model=llm_model,
-            api_key=settings.LLM_API_KEY,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-    else:
-        if use_mock_if_offline:
-            st.info("Local LLM not detected. Using Mock LFM 2.5 LLM simulator to demonstrate the execution loop.")
-            custom_llm = MockLFM25LLM()
-        else:
-            st.error(f"Cannot run: Local LLM at {llm_endpoint} is offline and mock fallback is disabled.")
+    if llm_provider == "gemini":
+        if not gemini_key.strip():
+            st.error("Please enter a valid Gemini API Key in the sidebar.")
             st.stop()
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            custom_llm = ChatGoogleGenerativeAI(
+                model=gemini_model,
+                google_api_key=gemini_key.strip(),
+                temperature=settings.LLM_TEMPERATURE,
+            )
+        except Exception as e:
+            st.error(f"Failed to initialize Gemini model: {e}")
+            st.stop()
+    else:
+        if is_llm_live:
+            custom_llm = ChatOpenAI(
+                base_url=llm_endpoint,
+                model=llm_model,
+                api_key=settings.LLM_API_KEY,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+        else:
+            if use_mock_if_offline:
+                st.info("Local LLM not detected. Using Mock LFM 2.5 LLM simulator to demonstrate the execution loop.")
+                custom_llm = MockLFM25LLM()
+            else:
+                st.error(f"Cannot run: Local LLM at {llm_endpoint} is offline and mock fallback is disabled.")
+                st.stop()
 
     agent = build_healing_graph(llm=custom_llm)
 
@@ -344,7 +215,7 @@ if run_button:
     }
 
     st.write("---")
-    st.subheader("3. Execution Checkpoint Tracker")
+    st.subheader("2. Execution Checkpoint Tracker")
 
     log_history = []
     with st.status("Executing Autonomous Healing Agent...", expanded=True) as status_box:
@@ -405,7 +276,7 @@ if "latest_run" in st.session_state:
     run_record = st.session_state["latest_run"]
 
     st.write("---")
-    st.subheader("4. Result")
+    st.subheader("3. Healed Result & Patched Code")
 
     if run_record.get("is_solved"):
         st.success("✨ Bug healed successfully! Code passed all unit tests in the Docker sandbox.")
@@ -422,7 +293,10 @@ if "latest_run" in st.session_state:
     # Interactive Iteration Inspector
     iterations = run_record.get("iteration_history", [])
     if iterations:
-        with st.expander(f"🔍 Detailed Iteration Inspector ({len(iterations)} attempts recorded)", expanded=False):
+        with st.expander(
+            f"🔍 Detailed Iteration Inspector ({len(iterations)} attempts recorded)",
+            expanded=st.session_state.get("inspector_expanded", False),
+        ):
             for item in iterations:
                 iter_num = item.get("iteration")
                 status_icon = "✅ Passed" if item.get("passed") else "❌ Failed"
@@ -504,7 +378,7 @@ if "latest_run" in st.session_state:
     ts_slug = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     st.write("---")
-    st.subheader("📥 Export Logs & Artifacts")
+    st.subheader("4. Export Logs & Artifacts")
     col_dl1, col_dl2 = st.columns(2)
     with col_dl1:
         st.download_button(

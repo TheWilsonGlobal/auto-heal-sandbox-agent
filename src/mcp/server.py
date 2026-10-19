@@ -4,7 +4,10 @@ import json
 import logging
 from typing import Any, Dict
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP
+except ImportError:
+    from mcp.server.mcpserver import MCPServer as FastMCP
 
 from src.config import settings
 from src.sandbox.docker_runner import DockerSandboxRunner

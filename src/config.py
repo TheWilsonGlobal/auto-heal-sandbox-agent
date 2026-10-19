@@ -10,14 +10,28 @@ ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 class Settings(BaseSettings):
     """System-wide configuration settings."""
 
-    # LLM Settings (Local Inference via llama.cpp or compatible server)
+    # LLM Provider & Settings
+    LLM_PROVIDER: str = Field(
+        default="gemini",
+        description="LLM provider: 'gemini' or 'openai' (local llama.cpp / vLLM)"
+    )
+    LLM_MODEL: str = Field(
+        default="gemini-3.5-flash-lite",
+        description="Model identifier (e.g. gemini-3.5-flash-lite)"
+    )
+    GEMINI_LLM_API_KEY: str = Field(
+        default="",
+        description="Google Gemini API Key"
+    )
+
+    # Legacy / OpenAI-compatible local fallback settings
     LLM_BASE_URL: str = Field(
         default="http://127.0.0.1:5813/v1",
         description="Local OpenAI-compatible base URL for llama.cpp / local model"
     )
     LLM_MODEL_NAME: str = Field(
-        default="C:\\Hub\\Models\\LFM-2.5-2.6B-Instruct\\LFM2.5-2.6B-Q8_0.gguf",
-        description="Target model identifier"
+        default="gemini-3.5-flash-lite",
+        description="Target model identifier (backward compatibility)"
     )
     LLM_API_KEY: str = Field(
         default="local",

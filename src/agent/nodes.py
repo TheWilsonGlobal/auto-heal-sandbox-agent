@@ -19,15 +19,45 @@ from src.utils.parser import extract_python_code, truncate_traceback
 logger = logging.getLogger(__name__)
 
 
+def _extract_response_text(response: Any) -> str:
+    """Safely extract plain text from AIMessage content across providers."""
+    content = getattr(response, "content", response)
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text", "")))
+            else:
+                parts.append(str(item))
+        return "".join(parts)
+    return str(content)
+
+
 def get_llm(custom_llm: Optional[Any] = None) -> Any:
-    """Instantiate the OpenAI-compatible client for local LFM 2.5."""
+    """Instantiate the configured LLM client (Gemini or OpenAI-compatible)."""
     if custom_llm is not None:
         return custom_llm
+
+    provider = (settings.LLM_PROVIDER or "openai").strip().lower()
+
+    if provider == "gemini":
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            api_key = settings.GEMINI_LLM_API_KEY or settings.LLM_API_KEY
+            model_name = settings.LLM_MODEL or settings.LLM_MODEL_NAME or "gemini-3.5-flash-lite"
+            logger.info("Initializing ChatGoogleGenerativeAI with model=%s", model_name)
+            return ChatGoogleGenerativeAI(
+                model=model_name,
+                google_api_key=api_key,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+        except Exception as e:
+            logger.warning("Failed to initialize ChatGoogleGenerativeAI (%s). Falling back to ChatOpenAI.", e)
 
     return ChatOpenAI(
         base_url=settings.LLM_BASE_URL,
         api_key=settings.LLM_API_KEY,
-        model=settings.LLM_MODEL_NAME,
+        model=settings.LLM_MODEL_NAME or settings.LLM_MODEL,
         temperature=settings.LLM_TEMPERATURE,
     )
 
@@ -66,7 +96,7 @@ class HealingNodes:
 
         try:
             response = self.llm.invoke(messages)
-            raw_response = getattr(response, "content", str(response))
+            raw_response = _extract_response_text(response)
         except Exception as e:
             logger.error("LLM call failed: %s", e)
             raw_response = f"```python\n{current_code}\n```"
@@ -91,7 +121,7 @@ class HealingNodes:
                     )
                 )
                 followup_resp = self.llm.invoke(followup_messages)
-                raw_followup = getattr(followup_resp, "content", str(followup_resp))
+                raw_followup = _extract_response_text(followup_resp)
                 recorded_llm_response = f"Turn 1: {raw_response}\n\nTurn 2: {raw_followup}"
                 patched_code = extract_python_code(raw_followup, current_code=current_code)
             except Exception as e:
@@ -114,7 +144,7 @@ class HealingNodes:
                     ),
                 ]
                 fix_resp = self.llm.invoke(fix_messages)
-                raw_fix = getattr(fix_resp, "content", str(fix_resp))
+                raw_fix = _extract_response_text(fix_resp)
                 candidate_fix = extract_python_code(raw_fix, current_code=current_code)
                 if candidate_fix.strip() and candidate_fix.strip() != current_code.strip():
                     patched_code = candidate_fix
