@@ -294,3 +294,32 @@ TEST SUITE (pytest):
 Write the complete corrected Python code for solution.py to pass all tests:
 """
 
+# ==============================================================================
+# 5. System Configuration & Default Settings
+# ==============================================================================
+
+# LLM Defaults
+DEFAULT_LLM_PROVIDER = "gemini"
+DEFAULT_LLM_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_LLM_BASE_URL = "http://127.0.0.1:5813/v1"
+DEFAULT_LLM_MODEL_NAME = "gemini-3.5-flash-lite"
+DEFAULT_LLM_API_KEY = "local"
+DEFAULT_LLM_TEMPERATURE = 0.1
+
+# Sandbox Resource & Isolation Settings
+SANDBOX_IMAGE = "auto-heal-sandbox:latest"
+SANDBOX_FALLBACK_IMAGE = "python:3.11-slim"
+SANDBOX_MEM_LIMIT = "512m"
+SANDBOX_NANO_CPUS = 1_000_000_000  # 1 core
+SANDBOX_NETWORK_MODE = "none"      # zero internet
+SANDBOX_USER = "nobody"
+SANDBOX_TIMEOUT_SECONDS = 10
+
+# Agent Healing Loop Constraints
+DEFAULT_MAX_RETRIES = 4
+DEFAULT_TRACEBACK_MAX_LINES = 10
+
+# MCP Server Settings
+DEFAULT_MCP_SERVER_NAME = "auto-heal-sandbox"
+
+
